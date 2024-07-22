@@ -28,6 +28,7 @@ def image_crop(infilename, save_path):
             print('save file ' + savename + '.....')
             i += 1
             
+## input, output change
 if __name__ == '__main__':
     input_image_path = "C:/kkt/2024_07_ColonyCounter/Colony_Image/50.Streptococcus agalactiae.jpg"
     output_save_path = "C:/kkt/2024_07_ColonyCounter/Resize_Img/re.50.Streptococcus agalactiae/" 
