@@ -1,41 +1,45 @@
-# data_preprocessing.py
-
 import tensorflow as tf
-import numpy as np
+import json
+from pycocotools.coco import COCO
+import os
 
-def generator_function():
-    data = [
-        (np.random.rand(100, 100, 3).astype(np.float32), [{'top': 70.0, 'left': 16.0, 'height': 8.0, 'width': 5.0}]),
-        (np.random.rand(100, 100, 3).astype(np.float32), [{'top': 30.0, 'left': 33.0, 'height': 28.0, 'width': 20.0}]),
-        # Add more data as needed
-    ]
-    for image, bbox_list in data:
-        bbox_array = np.array([list(bbox.values()) for bbox in bbox_list], dtype=np.float32)
-        yield image, bbox_array
+def load_image(image_id, coco):
+    print(f"Loading image with ID: {image_id} (type: {type(image_id)})")
+    try:
+        # Check if image_id exists in coco dataset
+        if image_id not in coco.imgs:
+            raise KeyError(f"Image ID {image_id} not found in dataset.")
+        
+        # Load image info
+        img_info = coco.loadImgs(image_id)[0]
+    except KeyError as e:
+        print(f"KeyError: {e}. This image ID might not be in the COCO dataset.")
+        return None
 
-def preprocess_image(image, bbox):
-    image = tf.image.resize(image, [100, 100])
-    return image, bbox
-
-def create_datasets(batch_size=32):
-    dataset = tf.data.Dataset.from_generator(
-        generator_function,
-        output_signature=(
-            tf.TensorSpec(shape=(100, 100, 3), dtype=tf.float32),
-            tf.TensorSpec(shape=(None, 4), dtype=tf.float32)
-        )
-    )
-
-    dataset = dataset.map(preprocess_image).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    img_path = img_info['file_name']
     
-    # 데이터셋을 훈련과 검증으로 나누기
-    dataset_size = sum(1 for _ in dataset)  # 데이터셋의 사이즈 계산
-    train_size = int(0.8 * dataset_size)
-    validation_size = dataset_size - train_size
+    # Construct image path
+    img_path = os.path.join('C:/kkt/2024_07_ColonyCounter/Images/', img_path)  # Adjust path to your images
+    if not os.path.isfile(img_path):
+        raise ValueError(f"Image file not found: {img_path}")
 
-    # 훈련 데이터와 검증 데이터로 분리
-    train_dataset = dataset.take(train_size)
-    validation_dataset = dataset.skip(train_size).take(validation_size)
+    img = tf.keras.preprocessing.image.load_img(img_path, target_size=(IMAGE_HEIGHT, IMAGE_WIDTH))
+    img = tf.keras.preprocessing.image.img_to_array(img)
+    return img
+
+def create_dataset():
+    coco = COCO('C:/kkt/2024_07_ColonyCounter/JSON_File/output_file.json')  # Adjust path to your annotations file
     
-    return train_dataset, validation_dataset
-
+    def generator():
+        image_ids = coco.getImgIds()
+        for image_id in image_ids:
+            img = load_image(image_id, coco)
+            if img is not None:
+                yield img, 0  # Replace with actual label or annotation
+    
+    dataset = tf.data.Dataset.from_generator(generator, output_signature=(
+        tf.TensorSpec(shape=(IMAGE_HEIGHT, IMAGE_WIDTH, CHANNELS), dtype=tf.float32),
+        tf.TensorSpec(shape=(), dtype=tf.int32)
+    ))
+    
+    return dataset
